@@ -1,0 +1,24 @@
+{
+    "versionLabel": "1.0",
+    "uuid": "1ed415c2-1373-4cf1-ab4d-652393dfe6be",
+    "appKeys": {
+        "max": 3,
+        "now": 1,
+        "avg": 0,
+        "error": 4,
+        "min": 2
+    },
+    "longName": "CIT595_2014_Project",
+    "versionCode": 1,
+    "capabilities": [
+        ""
+    ],
+    "shortName": "CIT595",
+    "companyName": "yinth@seas.upenn.edu",
+    "watchapp": {
+        "watchface": false
+    },
+    "resources": {
+        "media": []
+    }
+}
