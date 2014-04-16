@@ -1,7 +1,7 @@
 // Global variables to be changed
 // var DELAY = 15000; // in millseconds  
-var IP = "192.168.0.105";
-var PORT = "80";
+var IP = "158.130.108.222";
+var PORT = "3001";
 
 
 function sendErrorMessage(error) {
@@ -13,7 +13,7 @@ function sendErrorMessage(error) {
 }
 
 /**
- * Get response from the server and send it back to the Pebble watch.
+ * Function to get response from the server and send it back to the Pebble watch.
  * The server should have the following format:
  * {
  *   "mode": "Celsius",
@@ -69,9 +69,36 @@ function onloadSuccess(request) {
            "min":"Min:" + min + sign,
            "max":"Max:" + max + sign});
       } else {
-        console.log("Error reading from temperature sensor.");
+        console.log("Invalid Response Received from Server.");
         sendErrorMessage("server");
       }
+}
+
+/*
+* Function to send message to Arduino to change readings to Fahrenheit
+*/
+function convertToFahrenheit(){  
+  console.log("About to establish HTTP connection.");
+  var req = new XMLHttpRequest();
+  var url = "http://" + IP + ":" + PORT + "/setF";
+  console.log("opening URL: " + url);
+  
+  req.onerror = function(e) {
+    console.log("Error connecting to server at " + url);
+    sendErrorMessage("server");
+  };
+    
+  req.onload = function(e) {
+    if (req.readyState == 4 && req.status == 200) {
+      onloadSuccess(req);  
+    } else {
+      sendErrorMessage("server");
+      console.log("Error connecting to server at " + url);
+    }
+  };
+  
+  req.open('GET', url , true);
+  req.send(null);
 }
 
 // To be investigated on why this doesn't work. 
@@ -101,10 +128,11 @@ Pebble.addEventListener("ready",
 
 Pebble.addEventListener("appmessage",
                          function(e) {
-                           getWeather();
-                           console.log(e.type);
-                           console.log(e.payload);
-                           console.log("message!");
+                           if (e.payload){
+                             if (e.payload.max){  // Select button to get temperature
+                               getWeather();
+                             } else if (e.payload.fahrenheit){
+                               convertToFahrenheit();
+                             }
+                           }
                          });
-
-

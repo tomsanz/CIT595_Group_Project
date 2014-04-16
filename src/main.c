@@ -11,44 +11,21 @@ static TextLayer *temperature_max_layer;
 
 static AppSync sync;
 static uint8_t sync_buffer[256];
+static uint8_t temperature_mode;
 
+enum TemperatureMode {
+  CELSIUS = 100,
+  FAHRENHEIT = 101 
+}
+  
 enum WeatherKey {
   WEATHER_AVG_KEY = 0, // TUPLE_CSTRING
   WEATHER_NOW_KEY = 1,  // TUPLE_CSTRING
   WEATHER_MIN_KEY = 2,
   WEATHER_MAX_KEY = 3,
-  ERROR = 4
+  ERROR = 4,
+  WEATHER_MODE = 5 // TUPLE_INTEGER swap between F and C mode
 };
-
-/*static void error_window_load(Window *window) {
-  Layer *window_layer = window_get_root_layer(window);
-
-  error_msg_layer = text_layer_create(GRect(0, 0, 144, 140));
-  text_layer_set_text_color(error_msg_layer, GColorWhite);
-  text_layer_set_background_color(error_msg_layer, GColorClear);
-  text_layer_set_font(error_msg_layer, fonts_get_system_font(FONT_KEY_GOTHIC_24_BOLD));
-  text_layer_set_text_alignment(error_msg_layer, GTextAlignmentCenter);
-  layer_add_child(window_layer, text_layer_get_layer(error_msg_layer));
-}
-
-static void error_window_unload(Window *window) {
-  text_layer_destroy(error_msg_layer);
-}
-
-static void init_error_window() {
-  if(!window_is_loaded(error_window)) {
-    const bool animated = true;
-    window_stack_push(error_window, animated);
-  }
-}
-
-static void close_error_window() {
-  if (window_is_loaded(error_window)) {
-    APP_LOG(APP_LOG_LEVEL_DEBUG, "Closing error window.");
-    const bool animated = false;
-    window_stack_pop(animated);
-  }
-}*/
 
 static void sync_error_callback(DictionaryResult dict_error, AppMessageResult app_message_error, void *context) {
   APP_LOG(APP_LOG_LEVEL_DEBUG, "App Message Sync Error: %d", app_message_error);
@@ -120,6 +97,7 @@ static void window_load(Window *window) {
     TupletCString(WEATHER_AVG_KEY, "Avg: N/A"),
     TupletCString(WEATHER_MAX_KEY, "Max: N/A"),
     TupletCString(WEATHER_MIN_KEY, "Min: N/A"),
+    //TupletInteger(WEATHER_FAH, integer)
     //TupletCString(ERROR, "No error."),
   };
 
@@ -135,23 +113,33 @@ static void window_unload(Window *window) {
   text_layer_destroy(temperature_avg_layer);
   text_layer_destroy(temperature_min_layer);
   text_layer_destroy(temperature_max_layer);
-
 }
 
+/* Called when down button is clicked*/
+ void down_single_click_handler(ClickRecognizerRef recognizer, void *context) {
+   DictionaryIterator *iter;
+   app_message_outbox_begin(&iter);
+   Tuplet value = TupletCString(WEATHER_MODE, "Convert to F");
+   dict_write_tuplet(iter, &value);
+   app_message_outbox_send();
+}
+
+/* Called when select button is clicked*/
 void select_click_handler(ClickRecognizerRef recognizer, void *context) {
-  Tuplet initial_values[] = {
+  Tuplet to_send_values[] = {
     TupletCString(WEATHER_NOW_KEY, "Now: Updating"),
     TupletCString(WEATHER_AVG_KEY, "Avg: Updating"),
     TupletCString(WEATHER_MAX_KEY, "Max: Updating"),
     TupletCString(WEATHER_MIN_KEY, "Min: Updating"),
     //TupletCString(ERROR, "No error."),
   };
-  app_sync_set(&sync, initial_values, ARRAY_LENGTH(initial_values));
+  app_sync_set(&sync, to_send_values, ARRAY_LENGTH(to_send_values));
 }
 
 /* this registers the appropriate function to the appropriate button */
 void config_provider(void *context) {
-   window_single_click_subscribe(BUTTON_ID_SELECT, select_click_handler);
+  window_single_click_subscribe(BUTTON_ID_SELECT, select_click_handler);
+  window_single_click_subscribe(BUTTON_ID_DOWN, down_single_click_handler);
 }
 
 static void init(void) {
@@ -164,15 +152,6 @@ static void init(void) {
     .load = window_load,
     .unload = window_unload
   });
-  
-  // Create error display window.
-  /*error_window = window_create();
-  window_set_background_color(error_window, GColorBlack);
-  window_set_fullscreen(error_window, true);
-  window_set_window_handlers(error_window, (WindowHandlers) {
-    .load = error_window_load,
-    .unload = error_window_unload
-  });*/
   
   // Set up listeners for each window.
   window_set_click_config_provider(window, config_provider);
@@ -188,7 +167,6 @@ static void init(void) {
 
 static void deinit(void) {
   window_destroy(window);
-  /*window_destroy(error_window)*/;
 }
 
 int main(void) {
