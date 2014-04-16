@@ -1,8 +1,10 @@
 // Global variables to be changed
 // var DELAY = 15000; // in millseconds  
-var IP = "192.168.0.100";
-var PORT = "80";
+var IP = "158.130.105.110";
+var PORT = "3001";
 var url = "http://" + IP + ":" + PORT + "/";
+var DELAY = 1000 * 10 * 1; // one minute.
+
 
 function sendErrorMessage(error) {
   Pebble.sendAppMessage({"now": "Error",
@@ -37,8 +39,6 @@ function getTemperatureModeByValue(mode) {
   else 
     return "Error";
 }
-
-
 
 
 /**
@@ -90,7 +90,7 @@ function onloadSuccess(request) {
            "avg":"Avg:" + avg + sign,
            "min":"Min:" + min + sign,
            "max":"Max:" + max + sign,
-           "mode":getTemperatureModeByName(mode)});
+           "temperatureMode":getTemperatureModeByName(mode)});
       } else {
         console.log("Invalid Response Received from Server.");
         sendErrorMessage("server");
@@ -109,7 +109,7 @@ function setTemperatureMode(current_mode){
   var fileName = (getTemperatureModeByValue(current_mode) == "Celsius" ? "setF": "setC");
   var req = getHTTPRequestObject(fileName);
     
-  req.onerror = function(e) {console.log(e.target);logError(fileName);};
+  req.onerror = function(e) {logError(fileName);};
     
   req.onload = function(e) {
     if (req.readyState == 4 && req.status == 200) {
@@ -122,29 +122,16 @@ function setTemperatureMode(current_mode){
   req.send(null);
 }
 
-// To be investigated on why this doesn't work. 
-// Currently it crashes the phone every time its run,
-// have to restart phone to resume js communication.
-
-/*function setInterval() {
+function updateWeather() {
   getWeather();
-  console.log("ready to loop ");
-  var oldTime = new Date().getTime();
-  console.log("current time is " + oldTime);
-  while("true") {
-    var currentTime = new Date().getTime();
-    if ((currentTime - oldTime) > DELAY) {
-      getWeather();
-      oldTime = currentTime;
-    }
-  }
-}*/
+  setTimeout(updateWeather(), 10000);
+}
 
 Pebble.addEventListener("ready",
                          function(e) {
                            console.log("connect!" + e.ready);
                            getWeather();
-                           console.log(e.type);
+                           console.log("ready type:" + e.type);
                          });
 
 Pebble.addEventListener("appmessage",

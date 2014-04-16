@@ -45,6 +45,7 @@ static void sync_tuple_changed_callback(const uint32_t key, const Tuple* new_tup
       break;
     case WEATHER_MODE:
       temperature_mode = new_tuple->value->uint8;
+      break;
   }
 }
 
