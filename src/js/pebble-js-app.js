@@ -1,8 +1,8 @@
 // Global variables to be changed
 // var DELAY = 15000; // in millseconds  
-var IP = "158.130.108.222";
-var PORT = "3001";
-
+var IP = "192.168.0.100";
+var PORT = "80";
+var url = "http://" + IP + ":" + PORT + "/";
 
 function sendErrorMessage(error) {
   Pebble.sendAppMessage({"now": "Error",
@@ -11,6 +11,35 @@ function sendErrorMessage(error) {
                           "max": error});
   console.log("Error connecting to: " + error);
 }
+
+function getHTTPRequestObject(fileName) {
+  var req = new XMLHttpRequest();
+  var request_url = url + fileName;
+  console.log("Generating httprequest object to: " + request_url);
+  req.open('GET', request_url , true);
+  return req;
+}
+
+function getTemperatureModeByName(mode) {
+  if (mode == "Celsius")
+    return 100;
+  else if (mode == "Fahrenheit")
+    return 101;
+  else 
+    return -1;
+}
+
+function getTemperatureModeByValue(mode) {
+  if (mode == 100)
+    return "Celsius";
+  else if (mode == 101)
+    return "Fahrenheit";
+  else 
+    return "Error";
+}
+
+
+
 
 /**
  * Function to get response from the server and send it back to the Pebble watch.
@@ -26,26 +55,16 @@ function sendErrorMessage(error) {
  * } 
  */
 function getWeather() {
-  console.log("About to establish HTTP connection.");
-  var req = new XMLHttpRequest();
-  var url = "http://" + IP + ":" + PORT + "/temperature";
-  console.log("opening URL: " + url);
+  var req = getHTTPRequestObject("temperature");
+  req.onerror = function(e) {logError("temperature");};
   
-  req.onerror = function(e) {
-    console.log("Error connecting to server at " + url);
-    sendErrorMessage("server");
-  };
-    
   req.onload = function(e) {
     if (req.readyState == 4 && req.status == 200) {
       onloadSuccess(req);  
     } else {
-      sendErrorMessage("server");
-      console.log("Error connecting to server at " + url);
+      logError("temperature");
     }
   };
-  
-  req.open('GET', url , true);
   req.send(null);
 }
 
@@ -53,12 +72,15 @@ function onloadSuccess(request) {
   console.log(request.responseText);
       var response = JSON.parse(request.responseText);
       if (response && response.data && response.data.length >0) {
-        var avg, now, min, max, sign;
+        var avg, now, min, max, sign, mode;
+        mode = response.mode;
+        if (mode == "Error") {
+          sendErrorMessage("sensor");
+          return;
+        }
+  
         var result = response.data[0];
-        if (response.mode == "Celsius")
-          sign = "\u00B0C";
-        else
-          sign = "\u00B0F";
+        sign = (mode == "Celsius"? "\u00B0C":"\u00B0F" );
         now = result.now;
         avg = result.avg;
         min = result.min;
@@ -67,37 +89,36 @@ function onloadSuccess(request) {
           "now":"Now:" + now + sign,
            "avg":"Avg:" + avg + sign,
            "min":"Min:" + min + sign,
-           "max":"Max:" + max + sign});
+           "max":"Max:" + max + sign,
+           "mode":getTemperatureModeByName(mode)});
       } else {
         console.log("Invalid Response Received from Server.");
         sendErrorMessage("server");
       }
 }
 
+function logError(error) {
+    console.log("Error connecting to server at " + url + error);
+    sendErrorMessage("server");
+}
+
 /*
 * Function to send message to Arduino to change readings to Fahrenheit
 */
-function convertToFahrenheit(){  
-  console.log("About to establish HTTP connection.");
-  var req = new XMLHttpRequest();
-  var url = "http://" + IP + ":" + PORT + "/setF";
-  console.log("opening URL: " + url);
-  
-  req.onerror = function(e) {
-    console.log("Error connecting to server at " + url);
-    sendErrorMessage("server");
-  };
+function setTemperatureMode(current_mode){
+  var fileName = (getTemperatureModeByValue(current_mode) == "Celsius" ? "setF": "setC");
+  var req = getHTTPRequestObject(fileName);
+    
+  req.onerror = function(e) {console.log(e.target);logError(fileName);};
     
   req.onload = function(e) {
     if (req.readyState == 4 && req.status == 200) {
-      onloadSuccess(req);  
+      console.log("Request: " + fileName + "success");
+      getWeather();
     } else {
-      sendErrorMessage("server");
-      console.log("Error connecting to server at " + url);
+      logError(fileName);
     }
   };
-  
-  req.open('GET', url , true);
   req.send(null);
 }
 
@@ -129,10 +150,11 @@ Pebble.addEventListener("ready",
 Pebble.addEventListener("appmessage",
                          function(e) {
                            if (e.payload){
-                             if (e.payload.max){  // Select button to get temperature
+                             console.log("Received message:" + JSON.stringify(e.payload)); 
+                             if (e.payload.temperatureMode){  
+                               setTemperatureMode(e.payload.temperatureMode);
+                             } else if (e.payload.max){
                                getWeather();
-                             } else if (e.payload.fahrenheit){
-                               convertToFahrenheit();
                              }
                            }
                          });

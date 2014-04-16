@@ -2,11 +2,12 @@
     "versionLabel": "1.0",
     "uuid": "1ed415c2-1373-4cf1-ab4d-652393dfe6be",
     "appKeys": {
-        "max": 3,
-        "now": 1,
         "avg": 0,
+        "min": 2,
+        "max": 3,
+        "temperatureMode": 5,
         "error": 4,
-        "min": 2
+        "now": 1
     },
     "longName": "CIT595_2014_Project",
     "versionCode": 1,

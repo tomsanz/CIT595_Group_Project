@@ -1,8 +1,6 @@
 #include "pebble.h"
 
-static Window *window, *error_window;
-
-static TextLayer *error_msg_layer;
+static Window *window;
 
 static TextLayer *temperature_now_layer;
 static TextLayer *temperature_avg_layer;
@@ -16,14 +14,13 @@ static uint8_t temperature_mode;
 enum TemperatureMode {
   CELSIUS = 100,
   FAHRENHEIT = 101 
-}
+};
   
 enum WeatherKey {
   WEATHER_AVG_KEY = 0, // TUPLE_CSTRING
   WEATHER_NOW_KEY = 1,  // TUPLE_CSTRING
   WEATHER_MIN_KEY = 2,
   WEATHER_MAX_KEY = 3,
-  ERROR = 4,
   WEATHER_MODE = 5 // TUPLE_INTEGER swap between F and C mode
 };
 
@@ -35,33 +32,23 @@ static void sync_tuple_changed_callback(const uint32_t key, const Tuple* new_tup
   const char *new_value = new_tuple->value->cstring;
   switch (key) {
     case WEATHER_NOW_KEY:
-    //close_error_window();
-    text_layer_set_text(temperature_now_layer, new_value);
-    break;
+      text_layer_set_text(temperature_now_layer, new_value);
+      break;
     case WEATHER_MAX_KEY:
-    //close_error_window();
-    text_layer_set_text(temperature_max_layer, new_value);
-    break;
+      text_layer_set_text(temperature_max_layer, new_value);
+      break;
     case WEATHER_MIN_KEY:
-    //close_error_window();  
-    text_layer_set_text(temperature_min_layer, new_value);      
-    break;
+      text_layer_set_text(temperature_min_layer, new_value);      
+      break;
     case WEATHER_AVG_KEY:
-    //close_error_window();
-    text_layer_set_text(temperature_avg_layer, new_value);      
-    break;
-    /*case ERROR:
-    if (strcmp(new_value, "No error.")) {
-      APP_LOG(APP_LOG_LEVEL_DEBUG, "Error received: %s", new_value);
-      init_error_window();
-      text_layer_set_text(error_msg_layer, new_value);
-    }
-    break;*/
+      text_layer_set_text(temperature_avg_layer, new_value);      
+      break;
+    case WEATHER_MODE:
+      temperature_mode = new_tuple->value->uint8;
   }
 }
 
-static void window_load(Window *window) {
-  APP_LOG(APP_LOG_LEVEL_DEBUG, "Default window loading...");
+static void window_init(Window *window) {
   Layer *window_layer = window_get_root_layer(window);
 
   temperature_now_layer = text_layer_create(GRect(0, 0, 144, 40));
@@ -91,16 +78,19 @@ static void window_load(Window *window) {
   text_layer_set_font(temperature_max_layer, fonts_get_system_font(FONT_KEY_GOTHIC_24_BOLD));
   text_layer_set_text_alignment(temperature_max_layer, GTextAlignmentCenter);
   layer_add_child(window_layer, text_layer_get_layer(temperature_max_layer));
-  
+}
+
+
+static void window_load(Window *window) {
+  APP_LOG(APP_LOG_LEVEL_DEBUG, "Default window loading...");
+  window_init(window);
   Tuplet initial_values[] = {
     TupletCString(WEATHER_NOW_KEY, "Now: N/A"),
     TupletCString(WEATHER_AVG_KEY, "Avg: N/A"),
     TupletCString(WEATHER_MAX_KEY, "Max: N/A"),
     TupletCString(WEATHER_MIN_KEY, "Min: N/A"),
-    //TupletInteger(WEATHER_FAH, integer)
-    //TupletCString(ERROR, "No error."),
+    TupletInteger(WEATHER_MODE, CELSIUS),
   };
-
   app_sync_init(&sync, sync_buffer, sizeof(sync_buffer), initial_values, ARRAY_LENGTH(initial_values),
       sync_tuple_changed_callback, sync_error_callback, NULL);
 
@@ -117,11 +107,28 @@ static void window_unload(Window *window) {
 
 /* Called when down button is clicked*/
  void down_single_click_handler(ClickRecognizerRef recognizer, void *context) {
-   DictionaryIterator *iter;
+   char* new_mode_text;
+   
+   if (temperature_mode == CELSIUS) 
+     new_mode_text = "Fahrenheit";
+   else 
+     new_mode_text = "Celsius";
+   
+   Tuplet to_send_values[] = {
+     TupletCString(WEATHER_NOW_KEY, "Changing"),
+     TupletCString(WEATHER_AVG_KEY, "temperature"),
+     TupletCString(WEATHER_MIN_KEY, "mode to"),
+     TupletCString(WEATHER_MAX_KEY, new_mode_text),
+     TupletInteger(WEATHER_MODE, temperature_mode)
+   };
+   app_sync_set(&sync, to_send_values, ARRAY_LENGTH(to_send_values));
+   
+  /* DictionaryIterator *iter;
    app_message_outbox_begin(&iter);
    Tuplet value = TupletCString(WEATHER_MODE, "Convert to F");
    dict_write_tuplet(iter, &value);
-   app_message_outbox_send();
+   app_message_outbox_send();*/
+   
 }
 
 /* Called when select button is clicked*/
@@ -131,7 +138,6 @@ void select_click_handler(ClickRecognizerRef recognizer, void *context) {
     TupletCString(WEATHER_AVG_KEY, "Avg: Updating"),
     TupletCString(WEATHER_MAX_KEY, "Max: Updating"),
     TupletCString(WEATHER_MIN_KEY, "Min: Updating"),
-    //TupletCString(ERROR, "No error."),
   };
   app_sync_set(&sync, to_send_values, ARRAY_LENGTH(to_send_values));
 }
