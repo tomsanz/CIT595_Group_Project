@@ -1,6 +1,6 @@
 // Global variables to be changed
 // var DELAY = 15000; // in millseconds  
-var IP = "158.130.105.110";
+var IP = "192.168.100.107";
 var PORT = "3001";
 var url = "http://" + IP + ":" + PORT + "/";
 var DELAY = 1000 * 10 * 1; // one minute.
@@ -136,6 +136,7 @@ Pebble.addEventListener("ready",
 
 Pebble.addEventListener("appmessage",
                          function(e) {
+                           console.log(new Date().toString() + "Message received.");
                            if (e.payload){
                              console.log("Received message:" + JSON.stringify(e.payload)); 
                              if (e.payload.temperatureMode){  
@@ -143,5 +144,6 @@ Pebble.addEventListener("appmessage",
                              } else if (e.payload.max){
                                getWeather();
                              }
-                           }
+                           } else
+                             console.log("appmessage payload failed.");
                          });
