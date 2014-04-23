@@ -12,17 +12,20 @@ static AppSync sync;
 static uint8_t sync_buffer[1024];
 static uint8_t temperature_mode;
 
-enum TemperatureMode {
+enum Temperature_Mode {
   CELSIUS = 100,
-  FAHRENHEIT = 101 
+  FAHRENHEIT = 101,
 };
-  
+
 enum WeatherKey {
-  WEATHER_AVG_KEY = 0, // TUPLE_CSTRING
-  WEATHER_NOW_KEY = 1,  // TUPLE_CSTRING
+  WEATHER_AVG_KEY = 1, // TUPLE_CSTRING
+  WEATHER_NOW_KEY = 0,  // TUPLE_CSTRING
   WEATHER_MIN_KEY = 2,
   WEATHER_MAX_KEY = 3,
-  WEATHER_MODE = 5 // TUPLE_INTEGER swap between F and C mode
+  WEATHER_MODE = 5, // TUPLE_INTEGER swap between F and C mode
+  REFRESH_MODE = 6, // Current refresh mode
+  COMMAND = 7, //
+  DISPLAY_MODE = 8
 };
 
 static void sync_error_callback(DictionaryResult dict_error, AppMessageResult app_message_error, void *context) {
@@ -68,7 +71,6 @@ static void window_init(Window *window) {
   init_text_layer(&temperature_max_layer, 120, window);
 }
 
-
 static void window_load(Window *window) {
   APP_LOG(APP_LOG_LEVEL_DEBUG, "Default window loading...");
   window_init(window);
@@ -78,10 +80,12 @@ static void window_load(Window *window) {
     TupletCString(WEATHER_MAX_KEY, "Max: N/A"),
     TupletCString(WEATHER_MIN_KEY, "Min: N/A"),
     TupletInteger(WEATHER_MODE, CELSIUS),
+    TupletInteger(DISPLAY_MODE, current_selections[MAIN_DISPLAY_OPTION] + 1),
+    TupletInteger(REFRESH_MODE, current_selections[REFRESH_OPTION] + 1),
+    TupletInteger(COMMAND, current_selections[UP_BUTTON_OPTION] + 1),
   };
   app_sync_init(&sync, sync_buffer, 
                 sizeof(sync_buffer),
-                //dict_calc_buffer_size_from_tuplets(initial_values, ARRAY_LENGTH(initial_values)), 
                 initial_values, 
                 ARRAY_LENGTH(initial_values),
                 sync_tuple_changed_callback, 
@@ -98,21 +102,40 @@ static void window_unload(Window *window) {
   text_layer_destroy(temperature_max_layer);
 }
 
+static void window_appear(Window *window) {
+    Tuplet to_send_values[] = {
+    TupletCString(WEATHER_NOW_KEY, "Now: N/A"),
+    TupletCString(WEATHER_AVG_KEY, "Avg: N/A"),
+    TupletCString(WEATHER_MAX_KEY, "Max: N/A"),
+    TupletCString(WEATHER_MIN_KEY, "Min: N/A"),
+    TupletInteger(DISPLAY_MODE, current_selections[MAIN_DISPLAY_OPTION] + 1),
+    TupletInteger(REFRESH_MODE, current_selections[REFRESH_OPTION] + 1),
+  };
+  app_sync_set(&sync, to_send_values, ARRAY_LENGTH(to_send_values));
+}
+
+void up_click_handler(ClickRecognizerRef recognizer, void *context) {
+  Tuplet to_send_values[] = {
+    TupletCString(WEATHER_NOW_KEY, "Now: Updating"),
+    TupletCString(WEATHER_AVG_KEY, "Avg: Updating"),
+    TupletCString(WEATHER_MAX_KEY, "Max: Updating"),
+    TupletCString(WEATHER_MIN_KEY, "Min: Updating"),
+    TupletInteger(COMMAND, current_selections[UP_BUTTON_OPTION] + 1),
+ //   TupletInteger(DISPLAY_MODE, current_selections[MAIN_DISPLAY_OPTION]),
+  };
+  app_sync_set(&sync, to_send_values, ARRAY_LENGTH(to_send_values));
+}
+
 /* Called when down button is clicked*/
- void down_single_click_handler(ClickRecognizerRef recognizer, void *context) {
-   char* new_mode_text;
-   
-   if (temperature_mode == CELSIUS) 
-     new_mode_text = "Fahrenheit";
-   else 
-     new_mode_text = "Celsius";
-   
+void down_single_click_handler(ClickRecognizerRef recognizer, void *context) {
+   char* new_mode_text = (temperature_mode == CELSIUS ? "Fahrenheit": "Celsius"); 
    Tuplet to_send_values[] = {
      TupletCString(WEATHER_NOW_KEY, "Changing"),
      TupletCString(WEATHER_AVG_KEY, "temperature"),
      TupletCString(WEATHER_MIN_KEY, "mode to"),
      TupletCString(WEATHER_MAX_KEY, new_mode_text),
-     TupletInteger(WEATHER_MODE, temperature_mode)
+     TupletInteger(WEATHER_MODE, temperature_mode),
+//     TupletInteger(DISPLAY_MODE, current_selections[MAIN_DISPLAY_OPTION]),
    };
    app_sync_set(&sync, to_send_values, ARRAY_LENGTH(to_send_values));   
 }
@@ -120,19 +143,13 @@ static void window_unload(Window *window) {
 /* Called when select button is clicked*/
 void select_click_handler(ClickRecognizerRef recognizer, void *context) {
   window_stack_push(setting_window, true /* animated */);
-  /*Tuplet to_send_values[] = {
-    TupletCString(WEATHER_NOW_KEY, "Now: Updating"),
-    TupletCString(WEATHER_AVG_KEY, "Avg: Updating"),
-    TupletCString(WEATHER_MAX_KEY, "Max: Updating"),
-    TupletCString(WEATHER_MIN_KEY, "Min: Updating"),
-  };
-  app_sync_set(&sync, to_send_values, ARRAY_LENGTH(to_send_values));*/
 }
 
 /* this registers the appropriate function to the appropriate button */
 void config_provider(void *context) {
   window_single_click_subscribe(BUTTON_ID_SELECT, select_click_handler);
   window_single_click_subscribe(BUTTON_ID_DOWN, down_single_click_handler);
+  window_single_click_subscribe(BUTTON_ID_UP, up_click_handler);
 }
 
 static void init(void) {
@@ -142,7 +159,8 @@ static void init(void) {
   window_set_fullscreen(window, true);
   window_set_window_handlers(window, (WindowHandlers) {
     .load = window_load,
-    .unload = window_unload
+    .unload = window_unload,
+    .appear = window_appear
   });
   
   // Create setting temperature diplay window.

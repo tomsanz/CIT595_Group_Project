@@ -2,6 +2,10 @@
 
 // Setting window variables
 #define MENU_ITEM_NUM 3
+#define MAIN_DISPLAY_OPTION 0
+#define REFRESH_OPTION 1
+#define UP_BUTTON_OPTION 2
+  
 static Window *setting_window;
 static SimpleMenuLayer *menu_layer;
 static SimpleMenuSection menu_sections[1];
@@ -9,7 +13,6 @@ static SimpleMenuItem menu_items[MENU_ITEM_NUM];
 
 // Default settings:
 // refresh every minute, up button send refresh reading, display sensor reading.
-static uint8_t refresh_item_index = 2, up_button_index = 1, display_index = 0;
 static const char* menu_items_text[] = {
   "Main display",
   "Auto refresh",
