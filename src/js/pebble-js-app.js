@@ -238,7 +238,8 @@ function sendMessage(one, two, three, four) {
 function readyHandler(e) {
   console.log("Connection established between phone and watch.");
   updateWeather();
-  getWeather();
+  if (REFRESH_MODE != 1)
+    getWeather();
   console.log("ready type:" + e.type);
 }
 
