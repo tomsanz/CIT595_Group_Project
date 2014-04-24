@@ -10,19 +10,14 @@ static TextLayer *temperature_max_layer;
 
 static AppSync sync;
 static uint8_t sync_buffer[1024];
-static uint8_t temperature_mode;
 
-enum Temperature_Mode {
-  CELSIUS = 100,
-  FAHRENHEIT = 101,
-};
+// TODO: Add persistent storage for watch app. 
 
 enum WeatherKey {
   WEATHER_AVG_KEY = 1, // TUPLE_CSTRING
   WEATHER_NOW_KEY = 0,  // TUPLE_CSTRING
   WEATHER_MIN_KEY = 2,
   WEATHER_MAX_KEY = 3,
-  WEATHER_MODE = 5, // TUPLE_INTEGER swap between F and C mode
   REFRESH_MODE = 6, // Current refresh mode
   COMMAND = 7, //
   DISPLAY_MODE = 8
@@ -47,9 +42,6 @@ static void sync_tuple_changed_callback(const uint32_t key, const Tuple* new_tup
       break;
     case WEATHER_AVG_KEY:
       text_layer_set_text(temperature_avg_layer, new_value);      
-      break;
-    case WEATHER_MODE:
-      temperature_mode = new_tuple->value->uint8;
       break;
   }
 }
@@ -79,13 +71,12 @@ static void window_load(Window *window) {
     TupletCString(WEATHER_AVG_KEY, "Avg: N/A"),
     TupletCString(WEATHER_MAX_KEY, "Max: N/A"),
     TupletCString(WEATHER_MIN_KEY, "Min: N/A"),
-    TupletInteger(WEATHER_MODE, CELSIUS),
     TupletInteger(DISPLAY_MODE, current_selections[MAIN_DISPLAY_OPTION] + 1),
     TupletInteger(REFRESH_MODE, current_selections[REFRESH_OPTION] + 1),
     TupletInteger(COMMAND, current_selections[UP_BUTTON_OPTION] + 1),
   };
   app_sync_init(&sync, sync_buffer, 
-                sizeof(sync_buffer),
+                sizeof(sync_buffer) * 2,
                 initial_values, 
                 ARRAY_LENGTH(initial_values),
                 sync_tuple_changed_callback, 
@@ -104,10 +95,6 @@ static void window_unload(Window *window) {
 
 static void window_appear(Window *window) {
     Tuplet to_send_values[] = {
-//    TupletCString(WEATHER_NOW_KEY, "Now: N/A"),
-//    TupletCString(WEATHER_AVG_KEY, "Avg: N/A"),
-//    TupletCString(WEATHER_MAX_KEY, "Max: N/A"),
-//    TupletCString(WEATHER_MIN_KEY, "Min: N/A"),
     TupletInteger(DISPLAY_MODE, current_selections[MAIN_DISPLAY_OPTION] + 1),
     TupletInteger(REFRESH_MODE, current_selections[REFRESH_OPTION] + 1),
   };
@@ -123,7 +110,6 @@ void up_click_handler(ClickRecognizerRef recognizer, void *context) {
 
 /* Called when down button is clicked*/
 void down_single_click_handler(ClickRecognizerRef recognizer, void *context) {
-   char* new_mode_text = (temperature_mode == CELSIUS ? "Fahrenheit": "Celsius"); 
    Tuplet to_send_values[] = {
      TupletInteger(COMMAND, 4), // switch temperature mode
    };
@@ -153,7 +139,7 @@ static void init(void) {
     .appear = window_appear
   });
   
-  // Create setting temperature diplay window.
+  // Create setting diplay window.
   setting_window = window_create();
   window_set_window_handlers(setting_window, (WindowHandlers) {
     .load = setting_window_load,

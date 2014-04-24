@@ -6,7 +6,12 @@ var INTERVAL_ID;
 var censorNow, censorMin, censorMax, censorAvg, outsideNow, tempMode;
 var HTTP_TIMEOUT = 5000;
 var DISPLAY_MODE = 1; // default display set to show censor temperature only.
-// var outsideWeatherRequestToggle = false; // 0 if is requesting, 1 if its ready.
+
+// TODO: Add persistent storage for the javascript to store the initial values of 
+// DISPLAY_MODE, and REFRESH_MODE variable values. The values should be the same as the initlal
+// values set by the watch's persisten storage.
+// Also need to add codes to update those values once new values are received.
+
 
 function sendErrorMessage(error) {
   sendMessage("Error", "connect", "to", error);
@@ -22,24 +27,6 @@ function getHTTPRequestObject(fileName) {
   req.open('GET', fileName , true);
   return req;
 }
-/*
-function getTemperatureModeByName(mode) {
-  if (mode == "Celsius")
-    return 100;
-  else if (mode == "Fahrenheit")
-    return 101;
-  else 
-    return -1;
-}
-
-function getTemperatureModeByValue(mode) {
-  if (mode == 100)
-    return "Celsius";
-  else if (mode == 101)
-    return "Fahrenheit";
-  else 
-    return "Error";
-}*/
 
 var locationOptions = { "timeout": 15000, "maximumAge": 60000 };
 
@@ -107,7 +94,7 @@ function pauseResumeCensor() {
 /*
 * Function to send message to Arduino to change readings to Fahrenheit
 */
-function setTemperatureMode(currentMode){
+function setTemperatureMode(){
   var fileName = (tempMode == "Celsius" ? "setF": "setC");
   var req = getHTTPRequestObject(censorServerURL + fileName);
 
@@ -249,6 +236,8 @@ function sendMessage(one, two, three, four) {
 
 function readyHandler(e) {
   console.log("Connection established between phone and watch.");
+  
+  // call updateWeather() here instead once the persistent storage for JS is setup.
   getWeather();
   console.log("ready type:" + e.type);
 }
@@ -257,12 +246,14 @@ function appMessageHandler(e) {
   console.log(e.type + "Message received.");
   if (e.payload){
     console.log("Received message:" + JSON.stringify(e.payload));
-    if (e.payload.displayMode) {
+    if (e.payload.displayMode)
       if (DISPLAY_MODE != e.payload.displayMode) {
         DISPLAY_MODE = e.payload.displayMode;
         getWeather();
       }
-    }
+
+    if (e.payload.refreshMode) 
+      updateWeather(e.payload.refreshMode);
     
     if (e.payload.command){
       console.log("command received: " + e.payload.command);
@@ -276,18 +267,16 @@ function appMessageHandler(e) {
         case 3: // pause/resume censor.
           pauseResumeCensor();
           break;
-        case 4:
+        case 4:  // change temperature mode.
           setTemperatureMode();
           break;
         default:
           console.log("Illegal command received.");
       }
-    } else if (e.payload.refreshMode) {
-      updateWeather(e.payload.refreshMode);
-    }
+    }  
   } else
     console.log("appmessage payload failed.");
 }
 
-Pebble.addEventListener("ready",readyHandler);
-Pebble.addEventListener("appmessage",appMessageHandler);
+Pebble.addEventListener("ready", readyHandler);
+Pebble.addEventListener("appmessage", appMessageHandler);
