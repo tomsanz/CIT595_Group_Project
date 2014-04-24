@@ -20,7 +20,8 @@ static const char* menu_items_text[] = {
 };
 // Default settings:
 // refresh every minute, up button send refresh reading, display sensor reading.
-static int current_selections[] = {0, 1, 0};
+static int current_selections[] = {0, 2, 0};
+
 // Total number of options for each menu item.
 static int selection_nums[] = {2, 5, 3};
 static const char* refresh_options[] = {
@@ -31,8 +32,8 @@ static const char* refresh_options[] = {
   "15 minutes"
 };
 static const char* up_button_options[] = {
-  "send morse code",
   "refresh reading",
+  "send morse code",
   "pause/resume sensor"
 };
 static const char* display_button_options[] = {

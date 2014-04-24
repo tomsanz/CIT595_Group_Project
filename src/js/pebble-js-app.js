@@ -1,19 +1,15 @@
 // Global variables to be changed
-// var DELAY = 15000; // in millseconds  
-var IP = "158.130.107.97";
+var IP = "192.168.0.100";
 var PORT = "3001";
-var url = "http://" + IP + ":" + PORT + "/";
-var DISPLAY_MODE, INTERVAL_ID;
+var censorServerURL = "http://" + IP + ":" + PORT + "/";
+var INTERVAL_ID;
 var censorNow, censorMin, censorMax, censorAvg, outsideNow, tempMode;
-var HTTP_TIMEOUT = 5000; 
-var pauseCensor = true;
-var outsideWeatherRequestToggle = true; // 0 if is requesting, 1 if its ready.
+var HTTP_TIMEOUT = 5000;
+var DISPLAY_MODE = 1; // default display set to show censor temperature only.
+// var outsideWeatherRequestToggle = false; // 0 if is requesting, 1 if its ready.
 
 function sendErrorMessage(error) {
-  Pebble.sendAppMessage({"now": "Error",
-                          "avg": "connect",
-                          "min": "to",
-                          "max": error});
+  sendMessage("Error", "connect", "to", error);
   console.log("Error connecting to: " + error);
 }
 
@@ -26,7 +22,7 @@ function getHTTPRequestObject(fileName) {
   req.open('GET', fileName , true);
   return req;
 }
-
+/*
 function getTemperatureModeByName(mode) {
   if (mode == "Celsius")
     return 100;
@@ -43,18 +39,22 @@ function getTemperatureModeByValue(mode) {
     return "Fahrenheit";
   else 
     return "Error";
-}
+}*/
 
 var locationOptions = { "timeout": 15000, "maximumAge": 60000 };
 
 function convertToCorrectTemperatureFormat(tempInKelvin) {
   var tempInCelsius = Math.round ((tempInKelvin - 273.15) * 100 )/100;
-  if (tempMode == "Celsius")
-    return tempInCelsius;
-  else if (tempMode == "Fahrenheit")
-    return Math.round ((tempInCelsius * 1.8 + 32) * 100) / 100;
-  else
-    return 0;
+  
+  switch(tempMode) {
+    case "Celsius":
+      return tempInCelsius + "\u00B0C";
+    case "Fahrenheit":
+      return Math.round ((tempInCelsius * 1.8 + 32) * 100) / 100 + "\u00B0F";
+    default:
+      console.log("Invalid temperature mode: " + tempMode);
+      return 0 + "\u00B0C";
+  }
 }
 
 function fetchWeather(latitude, longitude) {
@@ -64,10 +64,8 @@ function fetchWeather(latitude, longitude) {
     if (req.readyState == 4 && req.status == 200) {
       console.log(req.responseText);
       var response = JSON.parse(req.responseText);
-      if (response && response.list && response.list.length > 0) {
-        var weatherResult = response.list[0];
-        outsideNow = convertToCorrectTemperatureFormat(weatherResult.main.temp);
-        outsideWeatherRequestToggle = false;
+      if (response && response.main && response.main.temp) {
+        outsideNow = convertToCorrectTemperatureFormat(response.main.temp);
       } else {
         console.log("Error");
       }
@@ -79,59 +77,61 @@ function fetchWeather(latitude, longitude) {
 function locationSuccess(pos) {
   var coordinates = pos.coords;
   fetchWeather(coordinates.latitude, coordinates.longitude);
+  Pebble.sendAppMessage({"min": "Outside Now:", "max": outsideNow}, sendSuccess, sendFail);
 }
 
 function locationError(err) {
   console.warn('location error (' + err.code + '): ' + err.message);
-  Pebble.sendAppMessage({
-    "now":"Loc Unavailable",
-    "avg":"N/A",
-     "min": "N/A",
-     "max": "N/A"
-  });
+  sendMessage("Location", "Unavailable", "", "");
 }
 
 function getOutsideWeather() {
-  outsideWeatherRequestToggle = true;
   navigator.geolocation.getCurrentPosition(locationSuccess, locationError, locationOptions);
 }
 
 function pauseResumeCensor() {
-  var requestFile = (pauseCensor ? "standby_0":"standby_1");
-    
-  var req = getHTTPRequestObject(url + requestFile);
+  var requestFile = "standby";
+  var req = getHTTPRequestObject(censorServerURL + requestFile);
   req.onload = function(e) {
     if (req.readyState == 4 && req.status == 200) {
-      Pebble.sendAppMessage({
-        "now":"Temperature",
-         "avg":"censor",
-         "min":"is",
-         "max": (pauseCensor ? "paused":"resumed"),
-        });
-      pauseCensor = !pauseCensor;
-    } else {
-      logError("server connection failed.");
-    }
-  };  
-}
-
-function sendMorseCode() {
-  var req = getHTTPRequestObject(url + "morse");
-  req.onload = function(e) {
-    if (req.readyState == 4 && req.status == 200) {
-      Pebble.sendAppMessage({
-        "now":"Sent morse",
-         "avg":"code to",
-         "min":"temperature",
-         "max":"censor"
-        });
+      var response = JSON.parse(req.responseText);
+      if (response.status)
+        sendMessage("Temperature", "censor", "is", response.status);
     } else {
       logError("server connection failed.");
     }
   };
+  req.send(null);
 }
 
+/*
+* Function to send message to Arduino to change readings to Fahrenheit
+*/
+function setTemperatureMode(currentMode){
+  var fileName = (tempMode == "Celsius" ? "setF": "setC");
+  var req = getHTTPRequestObject(censorServerURL + fileName);
 
+  req.onload = function(e) {
+    if (req.readyState == 4 && req.status == 200) {
+      console.log("Request: " + censorServerURL + fileName + " success");
+      getWeather();
+    } else {
+      logError(censorServerURL + fileName);
+    }
+  };
+  req.send(null);
+}
+
+function sendMorseCode() {
+  var req = getHTTPRequestObject(censorServerURL + "morse");
+  req.onload = function(e) {
+    if (req.readyState == 4 && req.status == 200) 
+      sendMessage("Sent morse", "code to", "temperature", "display");
+     else 
+      logError("server connection failed.");
+  };
+  req.send(null);
+}
 
 /**
  * Function to get response from the server and send it back to the Pebble watch.
@@ -147,7 +147,7 @@ function sendMorseCode() {
  * } 
  */
 function getWeather() {
-  var req = getHTTPRequestObject(url + "temperature");
+  var req = getHTTPRequestObject(censorServerURL + "temperature");
 
   if (DISPLAY_MODE == 2) 
     getOutsideWeather();
@@ -155,8 +155,6 @@ function getWeather() {
   req.onload = function(e) {
     if (req.readyState == 4 && req.status == 200) {
       onloadSuccess(req);
-      while (outsideWeatherRequestToggle);
-      sendTempToWatch();
     } else {
       logError("temperature");
     }
@@ -164,26 +162,13 @@ function getWeather() {
   req.send(null);
 }
 
-
 function sendTempToWatch() {
   switch(DISPLAY_MODE) {
-    case 2: 
-      Pebble.sendAppMessage({
-        "now":"Censor Now:",
-         "avg":censorNow,
-         "min":"Outside Now:",
-         "max":outsideNow,
-         "temperatureMode":getTemperatureModeByName(tempMode)
-        });
-      break;
     case 1:
-      Pebble.sendAppMessage({
-        "now":"Now:" + censorNow,
-         "avg":"Avg:" + censorAvg,
-         "min":"Min:" + censorMin,
-         "max":"Max:" + censorMax,
-         "temperatureMode":getTemperatureModeByName(tempMode)
-        });
+      sendMessage("Now: " + censorNow, "Avg: " + censorAvg, "Min: " + censorMin, "Max" + censorMax);
+      break;
+    case 2: 
+      Pebble.sendAppMessage({"now": "Censor Now:", "avg": censorNow}, sendSuccess, sendFail);
       break;
     default: 
       console.log("Error, display mode not set.");
@@ -193,19 +178,21 @@ function sendTempToWatch() {
 function onloadSuccess(request) {
   console.log(request.responseText);
   var response = JSON.parse(request.responseText);
-  if (response && response.data && response.data.length >0) {
-    var sign;
+  if (response) {
     tempMode = response.mode;
-    if (tempMode == "Error") {
-      sendErrorMessage("sensor");
+    if (response.error) {
+      sendErrorMessage(response.error);
       return;
     }
-    var result = response.data[0];
-    sign = (tempMode == "Celsius"? "\u00B0C":"\u00B0F" );
-    censorNow = result.now + sign;
-    censorAvg = result.avg + sign;
-    censorAvg = result.min + sign;
-    censorMax = result.max + sign;
+    if (response.data && response.data.length >0) {
+      var result = response.data[0];
+      var sign = (tempMode == "Celsius"? "\u00B0C":"\u00B0F" );
+      censorNow = result.now + sign;
+      censorAvg = result.avg + sign;
+      censorMin = result.min + sign;
+      censorMax = result.max + sign;
+      sendTempToWatch();
+    } 
   } else {
     console.log("Invalid Response Received from Server.");
     sendErrorMessage("server");
@@ -215,26 +202,6 @@ function onloadSuccess(request) {
 function logError(error) {
     console.log("Error connecting to server at " + error);
     sendErrorMessage("server");
-}
-
-/*
-* Function to send message to Arduino to change readings to Fahrenheit
-*/
-function setTemperatureMode(currentMode, displayMode){
-  var fileName = (getTemperatureModeByValue(currentMode) == "Celsius" ? "setF": "setC");
-  var req = getHTTPRequestObject(fileName);
-    
-  req.onerror = function(e) {logError(fileName);};
-    
-  req.onload = function(e) {
-    if (req.readyState == 4 && req.status == 200) {
-      console.log("Request: " + fileName + "success");
-      getWeather();
-    } else {
-      logError(fileName);
-    }
-  };
-  req.send(null);
 }
 
 function getDelayInMS(delay) {
@@ -259,7 +226,6 @@ function updateWeather(delay) {
   // reset any existing loop.
   if (INTERVAL_ID)
     clearInterval(INTERVAL_ID);
-
   if (delayInMS ==  -1) {
     getWeather();
   } else {
@@ -267,49 +233,61 @@ function updateWeather(delay) {
   }
 }
 
-Pebble.addEventListener("ready",
-                         function(e) {
-                           console.log("Connection established between phone and watch.");
-                           /*if (e.payload.displayMode) {
-                             DISPLAY_MODE = e.payload.displayMode;
-                             console.log("Set current displayMode to %d", DISPLAY_MODE);
-                           } else 
-                             console.log("Illegal message received from watch, missing dipslayMode info.");
-                
-                           if (e.payload.refreshMode)
-                             updateWeather(e.payload.refreshMode);*/
-                           console.log("ready type:" + e.type);
-                         });
+function sendSuccess (e) {
+  console.log("Successfully send message to Pebble");
+  console.log("Message sent: " + e.data);
+}
 
-Pebble.addEventListener("appmessage",
-                         function(e) {
-                           console.log(new Date().toString() + "Message received.");
-                           if (e.payload){
-                             console.log("Received message:" + JSON.stringify(e.payload));
-                             if (e.payload.displayMode) 
-                               DISPLAY_MODE = e.payload.displayMode;
-                             
-                             if (e.payload.temperatureMode){ 
-                               console.log("temperature mode change request received.");
-                               setTemperatureMode(e.payload.temperatureMode);
-                             } else if (e.payload.command){
-                               console.log("command received: " + e.payload.command);
-                               switch(e.payload.command) {
-                                 case 1: // send morse code
-                                   sendMorseCode();
-                                   break;
-                                 case 2: // get latest weather info
-                                   getWeather();
-                                   break;
-                                 case 3: // pause/resume censor.
-                                   pauseResumeCensor();
-                                   break;
-                                 default:
-                                   console.log("Illegal command received.");
-                               }
-                             } else if (e.payload.refreshMode) {
-                               updateWeather(e.payload.refreshMode);
-                             }
-                           } else
-                             console.log("appmessage payload failed.");
-                         });
+function sendFail (e) {
+  console.log("Send message to Pebble failed");
+  console.log("Message attempted to send: " + e.data);
+}
+
+function sendMessage(one, two, three, four) {
+  Pebble.sendAppMessage({"now": one, "avg": two, "min": three, "max": four}, sendSuccess, sendFail);
+}
+
+function readyHandler(e) {
+  console.log("Connection established between phone and watch.");
+  getWeather();
+  console.log("ready type:" + e.type);
+}
+
+function appMessageHandler(e) {
+  console.log(e.type + "Message received.");
+  if (e.payload){
+    console.log("Received message:" + JSON.stringify(e.payload));
+    if (e.payload.displayMode) {
+      if (DISPLAY_MODE != e.payload.displayMode) {
+        DISPLAY_MODE = e.payload.displayMode;
+        getWeather();
+      }
+    }
+    
+    if (e.payload.command){
+      console.log("command received: " + e.payload.command);
+      switch(e.payload.command) {
+        case 1: // get latest weather info
+          getWeather();
+          break;
+        case 2: // send morse code
+          sendMorseCode();
+          break;
+        case 3: // pause/resume censor.
+          pauseResumeCensor();
+          break;
+        case 4:
+          setTemperatureMode();
+          break;
+        default:
+          console.log("Illegal command received.");
+      }
+    } else if (e.payload.refreshMode) {
+      updateWeather(e.payload.refreshMode);
+    }
+  } else
+    console.log("appmessage payload failed.");
+}
+
+Pebble.addEventListener("ready",readyHandler);
+Pebble.addEventListener("appmessage",appMessageHandler);

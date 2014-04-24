@@ -1,28 +1,28 @@
 {
-    "uuid": "1ed415c2-1373-4cf1-ab4d-652393dfe6be",
-    "watchapp": {
-        "watchface": false
-    },
     "versionLabel": "1.0",
-    "companyName": "yinth@seas.upenn.edu",
     "capabilities": [
         "location"
     ],
     "shortName": "CIT595",
     "longName": "CIT595_2014_Project",
     "versionCode": 1,
+    "uuid": "1ed415c2-1373-4cf1-ab4d-652393dfe6be",
+    "resources": {
+        "media": []
+    },
+    "watchapp": {
+        "watchface": false
+    },
     "appKeys": {
         "avg": 1,
         "temperatureMode": 5,
-        "refreshMode": 6,
-        "min": 2,
-        "displayMode": 8,
-        "max": 3,
         "error": 4,
-        "now": 0,
-        "command": 7
+        "refreshMode": 6,
+        "command": 7,
+        "max": 3,
+        "displayMode": 8,
+        "min": 2,
+        "now": 0
     },
-    "resources": {
-        "media": []
-    }
+    "companyName": "yinth@seas.upenn.edu"
 }

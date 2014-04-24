@@ -104,10 +104,10 @@ static void window_unload(Window *window) {
 
 static void window_appear(Window *window) {
     Tuplet to_send_values[] = {
-    TupletCString(WEATHER_NOW_KEY, "Now: N/A"),
-    TupletCString(WEATHER_AVG_KEY, "Avg: N/A"),
-    TupletCString(WEATHER_MAX_KEY, "Max: N/A"),
-    TupletCString(WEATHER_MIN_KEY, "Min: N/A"),
+//    TupletCString(WEATHER_NOW_KEY, "Now: N/A"),
+//    TupletCString(WEATHER_AVG_KEY, "Avg: N/A"),
+//    TupletCString(WEATHER_MAX_KEY, "Max: N/A"),
+//    TupletCString(WEATHER_MIN_KEY, "Min: N/A"),
     TupletInteger(DISPLAY_MODE, current_selections[MAIN_DISPLAY_OPTION] + 1),
     TupletInteger(REFRESH_MODE, current_selections[REFRESH_OPTION] + 1),
   };
@@ -116,12 +116,7 @@ static void window_appear(Window *window) {
 
 void up_click_handler(ClickRecognizerRef recognizer, void *context) {
   Tuplet to_send_values[] = {
-    TupletCString(WEATHER_NOW_KEY, "Now: Updating"),
-    TupletCString(WEATHER_AVG_KEY, "Avg: Updating"),
-    TupletCString(WEATHER_MAX_KEY, "Max: Updating"),
-    TupletCString(WEATHER_MIN_KEY, "Min: Updating"),
     TupletInteger(COMMAND, current_selections[UP_BUTTON_OPTION] + 1),
- //   TupletInteger(DISPLAY_MODE, current_selections[MAIN_DISPLAY_OPTION]),
   };
   app_sync_set(&sync, to_send_values, ARRAY_LENGTH(to_send_values));
 }
@@ -130,12 +125,7 @@ void up_click_handler(ClickRecognizerRef recognizer, void *context) {
 void down_single_click_handler(ClickRecognizerRef recognizer, void *context) {
    char* new_mode_text = (temperature_mode == CELSIUS ? "Fahrenheit": "Celsius"); 
    Tuplet to_send_values[] = {
-     TupletCString(WEATHER_NOW_KEY, "Changing"),
-     TupletCString(WEATHER_AVG_KEY, "temperature"),
-     TupletCString(WEATHER_MIN_KEY, "mode to"),
-     TupletCString(WEATHER_MAX_KEY, new_mode_text),
-     TupletInteger(WEATHER_MODE, temperature_mode),
-//     TupletInteger(DISPLAY_MODE, current_selections[MAIN_DISPLAY_OPTION]),
+     TupletInteger(COMMAND, 4), // switch temperature mode
    };
    app_sync_set(&sync, to_send_values, ARRAY_LENGTH(to_send_values));   
 }
