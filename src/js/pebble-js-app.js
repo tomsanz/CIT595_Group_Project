@@ -1,11 +1,12 @@
 // Global variables to be changed
-var IP = "192.168.0.100";
+var IP = "158.130.105.196";
 var PORT = "3001";
-var censorServerURL = "http://" + IP + ":" + PORT + "/";
+var sensorServerURL = "http://" + IP + ":" + PORT + "/";
 var INTERVAL_ID;
-var censorNow, censorMin, censorMax, censorAvg, outsideNow, tempMode;
+var sensorNow, sensorMin, sensorMax, sensorAvg, outsideNow, tempMode;
 var HTTP_TIMEOUT = 5000;
-var DISPLAY_MODE = 1; // default display set to show censor temperature only.
+var DISPLAY_MODE = 1; // default display set to show sensor temperature only.
+var REFRESH_MODE = 3;
 
 // TODO: Add persistent storage for the javascript to store the initial values of 
 // DISPLAY_MODE, and REFRESH_MODE variable values. The values should be the same as the initlal
@@ -76,14 +77,14 @@ function getOutsideWeather() {
   navigator.geolocation.getCurrentPosition(locationSuccess, locationError, locationOptions);
 }
 
-function pauseResumeCensor() {
+function pauseResumeSensor() {
   var requestFile = "standby";
-  var req = getHTTPRequestObject(censorServerURL + requestFile);
+  var req = getHTTPRequestObject(sensorServerURL + requestFile);
   req.onload = function(e) {
     if (req.readyState == 4 && req.status == 200) {
       var response = JSON.parse(req.responseText);
       if (response.status)
-        sendMessage("Temperature", "censor", "is", response.status);
+        sendMessage("Temperature", "sensor", "is", response.status);
     } else {
       logError("server connection failed.");
     }
@@ -96,21 +97,21 @@ function pauseResumeCensor() {
 */
 function setTemperatureMode(){
   var fileName = (tempMode == "Celsius" ? "setF": "setC");
-  var req = getHTTPRequestObject(censorServerURL + fileName);
+  var req = getHTTPRequestObject(sensorServerURL + fileName);
 
   req.onload = function(e) {
     if (req.readyState == 4 && req.status == 200) {
-      console.log("Request: " + censorServerURL + fileName + " success");
+      console.log("Request: " + sensorServerURL + fileName + " success");
       getWeather();
     } else {
-      logError(censorServerURL + fileName);
+      logError(sensorServerURL + fileName);
     }
   };
   req.send(null);
 }
 
 function sendMorseCode() {
-  var req = getHTTPRequestObject(censorServerURL + "morse");
+  var req = getHTTPRequestObject(sensorServerURL + "morse");
   req.onload = function(e) {
     if (req.readyState == 4 && req.status == 200) 
       sendMessage("Sent morse", "code to", "temperature", "display");
@@ -134,7 +135,7 @@ function sendMorseCode() {
  * } 
  */
 function getWeather() {
-  var req = getHTTPRequestObject(censorServerURL + "temperature");
+  var req = getHTTPRequestObject(sensorServerURL + "temperature");
 
   if (DISPLAY_MODE == 2) 
     getOutsideWeather();
@@ -152,10 +153,10 @@ function getWeather() {
 function sendTempToWatch() {
   switch(DISPLAY_MODE) {
     case 1:
-      sendMessage("Now: " + censorNow, "Avg: " + censorAvg, "Min: " + censorMin, "Max" + censorMax);
+      sendMessage("Now: " + sensorNow, "Avg: " + sensorAvg, "Min: " + sensorMin, "Max" + sensorMax);
       break;
     case 2: 
-      Pebble.sendAppMessage({"now": "Censor Now:", "avg": censorNow}, sendSuccess, sendFail);
+      Pebble.sendAppMessage({"now": "Sensor Now:", "avg": sensorNow}, sendSuccess, sendFail);
       break;
     default: 
       console.log("Error, display mode not set.");
@@ -174,10 +175,10 @@ function onloadSuccess(request) {
     if (response.data && response.data.length >0) {
       var result = response.data[0];
       var sign = (tempMode == "Celsius"? "\u00B0C":"\u00B0F" );
-      censorNow = result.now + sign;
-      censorAvg = result.avg + sign;
-      censorMin = result.min + sign;
-      censorMax = result.max + sign;
+      sensorNow = result.now + sign;
+      sensorAvg = result.avg + sign;
+      sensorMin = result.min + sign;
+      sensorMax = result.max + sign;
       sendTempToWatch();
     } 
   } else {
@@ -207,8 +208,8 @@ function getDelayInMS(delay) {
   }
 }
 
-function updateWeather(delay) {
-  var delayInMS = getDelayInMS(delay);
+function updateWeather() {
+  var delayInMS = getDelayInMS(REFRESH_MODE);
   console.log("Setting auto refresh delay to: "+ delayInMS + " ms");
   // reset any existing loop.
   if (INTERVAL_ID)
@@ -236,8 +237,7 @@ function sendMessage(one, two, three, four) {
 
 function readyHandler(e) {
   console.log("Connection established between phone and watch.");
-  
-  // call updateWeather() here instead once the persistent storage for JS is setup.
+  updateWeather();
   getWeather();
   console.log("ready type:" + e.type);
 }
@@ -253,7 +253,10 @@ function appMessageHandler(e) {
       }
 
     if (e.payload.refreshMode) 
-      updateWeather(e.payload.refreshMode);
+      if (e.payload.refreshMode != REFRESH_MODE) {
+        REFRESH_MODE = e.payload.refreshMode;
+        updateWeather();
+      } 
     
     if (e.payload.command){
       console.log("command received: " + e.payload.command);
@@ -264,8 +267,8 @@ function appMessageHandler(e) {
         case 2: // send morse code
           sendMorseCode();
           break;
-        case 3: // pause/resume censor.
-          pauseResumeCensor();
+        case 3: // pause/resume sensor.
+          pauseResumeSensor();
           break;
         case 4:  // change temperature mode.
           setTemperatureMode();
