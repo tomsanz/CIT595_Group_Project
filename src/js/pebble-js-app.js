@@ -153,7 +153,7 @@ function getWeather() {
 function sendTempToWatch() {
   switch(DISPLAY_MODE) {
     case 1:
-      sendMessage("Now: " + sensorNow, "Avg: " + sensorAvg, "Min: " + sensorMin, "Max" + sensorMax);
+      sendMessage("Now: " + sensorNow, "Avg: " + sensorAvg, "Min: " + sensorMin, "Max: " + sensorMax);
       break;
     case 2: 
       Pebble.sendAppMessage({"now": "Sensor Now:", "avg": sensorNow}, sendSuccess, sendFail);
@@ -257,7 +257,7 @@ function appMessageHandler(e) {
       if (e.payload.refreshMode != REFRESH_MODE) {
         REFRESH_MODE = e.payload.refreshMode;
         updateWeather();
-      } 
+      }
     
     if (e.payload.command){
       console.log("command received: " + e.payload.command);
