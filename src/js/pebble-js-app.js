@@ -1,5 +1,5 @@
 // Global variables to be changed
-var IP = "158.130.105.196";
+var IP = "165.123.222.248";
 var PORT = "3001";
 var sensorServerURL = "http://" + IP + ":" + PORT + "/";
 var INTERVAL_ID;
@@ -7,15 +7,11 @@ var sensorNow, sensorMin, sensorMax, sensorAvg, outsideNow, tempMode;
 var HTTP_TIMEOUT = 5000;
 var DISPLAY_MODE = 1; // default display set to show sensor temperature only.
 var REFRESH_MODE = 3;
-
-// TODO: Add persistent storage for the javascript to store the initial values of 
-// DISPLAY_MODE, and REFRESH_MODE variable values. The values should be the same as the initlal
-// values set by the watch's persisten storage.
-// Also need to add codes to update those values once new values are received.
-
+var locationOptions = { "timeout": 15000, "maximumAge": 60000 };
+var PAUSE_INTERVAL = 3000; // Time to pause on a particular screen
 
 function sendErrorMessage(error) {
-  sendMessage("Error", "connect", "to", error);
+  sendMessage("Error", "connecting", "to", error);
   console.log("Error connecting to: " + error);
 }
 
@@ -29,16 +25,15 @@ function getHTTPRequestObject(fileName) {
   return req;
 }
 
-var locationOptions = { "timeout": 15000, "maximumAge": 60000 };
 
 function convertToCorrectTemperatureFormat(tempInKelvin) {
-  var tempInCelsius = Math.round ((tempInKelvin - 273.15) * 100 )/100;
+  var tempInCelsius = Math.round ((tempInKelvin - 273.15) * 10 )/10;
   
   switch(tempMode) {
     case "Celsius":
       return tempInCelsius + "\u00B0C";
     case "Fahrenheit":
-      return Math.round ((tempInCelsius * 1.8 + 32) * 100) / 100 + "\u00B0F";
+      return Math.round ((tempInCelsius * 1.8 + 32) * 10) / 10 + "\u00B0F";
     default:
       console.log("Invalid temperature mode: " + tempMode);
       return 0 + "\u00B0C";
@@ -55,8 +50,11 @@ function fetchWeather(latitude, longitude) {
       if (response && response.main && response.main.temp) {
         outsideNow = convertToCorrectTemperatureFormat(response.main.temp);
       } else {
-        console.log("Error");
+        console.log("Weather response missing parts");
       }
+    } else {
+      console.log("Weather fetching not ready");
+      fetchWeather(latitude, longitude);
     }
   };
   req.send(null);
@@ -83,8 +81,11 @@ function pauseResumeSensor() {
   req.onload = function(e) {
     if (req.readyState == 4 && req.status == 200) {
       var response = JSON.parse(req.responseText);
-      if (response.status)
+      if (response.status){
         sendMessage("Temperature", "sensor", "is", response.status);
+        pause(PAUSE_INTERVAL);
+        resetScreen(); 
+      }
     } else {
       logError("server connection failed.");
     }
@@ -113,8 +114,11 @@ function setTemperatureMode(){
 function sendMorseCode() {
   var req = getHTTPRequestObject(sensorServerURL + "morse");
   req.onload = function(e) {
-    if (req.readyState == 4 && req.status == 200) 
+    if (req.readyState == 4 && req.status == 200){
       sendMessage("Sent morse", "code to", "temperature", "display");
+      pause(PAUSE_INTERVAL);
+      resetScreen();      
+    } 
      else 
       logError("server connection failed.");
   };
@@ -137,8 +141,9 @@ function sendMorseCode() {
 function getWeather() {
   var req = getHTTPRequestObject(sensorServerURL + "temperature");
 
-  if (DISPLAY_MODE == 2) 
+  if (DISPLAY_MODE == 2){
     getOutsideWeather();
+  } 
   
   req.onload = function(e) {
     if (req.readyState == 4 && req.status == 200) {
@@ -208,6 +213,12 @@ function getDelayInMS(delay) {
   }
 }
 
+function resetScreen(){
+  sendMessage("Currently", "updating", "Please", "wait");
+  pause(1000);
+  getWeather();
+}
+
 function updateWeather() {
   var delayInMS = getDelayInMS(REFRESH_MODE);
   console.log("Setting auto refresh delay to: "+ delayInMS + " ms");
@@ -221,14 +232,25 @@ function updateWeather() {
   }
 }
 
+function pause(milliseconds){
+  var start = new Date().getTime();
+  for (var i = 0; i < 1e7; i++) {
+    if ((new Date().getTime() - start) > milliseconds){
+      break;
+    }
+  }
+}
+
 function sendSuccess (e) {
   console.log("Successfully send message to Pebble");
-  console.log("Message sent: " + e.data);
+  console.log("Message sent: " + e.type);
 }
 
 function sendFail (e) {
   console.log("Send message to Pebble failed");
-  console.log("Message attempted to send: " + e.data);
+  console.log("Message attempted to send: " + e.type);
+  console.log("Payload: " + JSON.stringify(e));
+  getWeather();
 }
 
 function sendMessage(one, two, three, four) {
@@ -273,6 +295,9 @@ function appMessageHandler(e) {
           break;
         case 4:  // change temperature mode.
           setTemperatureMode();
+          break;
+        case 5:  // Reset screen
+          resetScreen();
           break;
         default:
           console.log("Illegal command received.");

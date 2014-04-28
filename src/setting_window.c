@@ -24,21 +24,21 @@ static int current_selections[] = {0, 2, 0};
 
 // Total number of options for each menu item.
 static int selection_nums[] = {2, 5, 3};
+static const char* up_button_options[] = {
+  "Refresh reading",
+  "Send morse code",
+  "Pause/Resume sensor"
+};
 static const char* refresh_options[] = {
-  "off",
+  "Off",
   "15 seconds",
   "1 minute",
   "5 minutes",
   "15 minutes"
 };
-static const char* up_button_options[] = {
-  "refresh reading",
-  "send morse code",
-  "pause/resume sensor"
-};
 static const char* display_button_options[] = {
-  "sensor readings",
-  "outside vs. sensor"
+  "Sensor readings",
+  "Outside & sensor temperature"
 };
 
 static const char** menu_items_options[] = {display_button_options, refresh_options, up_button_options};

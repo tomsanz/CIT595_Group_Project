@@ -76,7 +76,7 @@ static void window_load(Window *window) {
     TupletInteger(COMMAND, current_selections[UP_BUTTON_OPTION] + 1),
   };
   app_sync_init(&sync, sync_buffer, 
-                sizeof(sync_buffer) * 2,
+                sizeof(sync_buffer) * 10,
                 initial_values, 
                 ARRAY_LENGTH(initial_values),
                 sync_tuple_changed_callback, 
@@ -95,6 +95,7 @@ static void window_unload(Window *window) {
 
 static void window_appear(Window *window) {
     Tuplet to_send_values[] = {
+    TupletInteger(COMMAND, 5), // refresh screen
     TupletInteger(DISPLAY_MODE, current_selections[MAIN_DISPLAY_OPTION] + 1),
     TupletInteger(REFRESH_MODE, current_selections[REFRESH_OPTION] + 1),
   };
