@@ -9,6 +9,7 @@ var DISPLAY_MODE = 1; // default display set to show sensor temperature only.
 var REFRESH_MODE = 3;
 var locationOptions = { "timeout": 15000, "maximumAge": 60000 };
 var PAUSE_INTERVAL = 3000; // Time to pause on a particular screen
+var messageQueue = [];
 
 function sendErrorMessage(error) {
   sendMessage("Error", "connecting", "to", error);
@@ -244,17 +245,26 @@ function pause(milliseconds){
 function sendSuccess (e) {
   console.log("Successfully send message to Pebble");
   console.log("Message sent: " + e.type);
+  messageQueue.shift();
+  if (messageQueue.length > 0) {
+    var tempItem = messageQueue[0];
+    Pebble.sendAppMessage({"now": tempItem[0], "avg": tempItem[1], "min": tempItem[2], "max": tempItem[3]}, sendSuccess, sendFail);
+  } 
 }
 
 function sendFail (e) {
   console.log("Send message to Pebble failed");
   console.log("Message attempted to send: " + e.type);
   console.log("Payload: " + JSON.stringify(e));
-  getWeather();
+//  getWeather();
 }
 
 function sendMessage(one, two, three, four) {
-  Pebble.sendAppMessage({"now": one, "avg": two, "min": three, "max": four}, sendSuccess, sendFail);
+  var item = [one, two, three, four];
+  messageQueue.push(item);
+  console.log("Adding " + item + "to send to watch app queue.");
+  if (messageQueue.length == 1)
+    Pebble.sendAppMessage({"now": one, "avg": two, "min": three, "max": four}, sendSuccess, sendFail);
 }
 
 function readyHandler(e) {
