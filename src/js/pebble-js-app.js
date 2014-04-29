@@ -1,5 +1,5 @@
 // Global variables to be changed
-var IP = "165.123.222.248";
+var IP = "158.130.104.172";
 var PORT = "3001";
 var sensorServerURL = "http://" + IP + ":" + PORT + "/";
 var INTERVAL_ID;
@@ -50,6 +50,7 @@ function fetchWeather(latitude, longitude) {
       var response = JSON.parse(req.responseText);
       if (response && response.main && response.main.temp) {
         outsideNow = convertToCorrectTemperatureFormat(response.main.temp);
+        sendMessage(null, null, "Outside Now:", outsideNow);
       } else {
         console.log("Weather response missing parts");
       }
@@ -64,7 +65,6 @@ function fetchWeather(latitude, longitude) {
 function locationSuccess(pos) {
   var coordinates = pos.coords;
   fetchWeather(coordinates.latitude, coordinates.longitude);
-  Pebble.sendAppMessage({"min": "Outside Now:", "max": outsideNow}, sendSuccess, sendFail);
 }
 
 function locationError(err) {
@@ -162,7 +162,7 @@ function sendTempToWatch() {
       sendMessage("Now: " + sensorNow, "Avg: " + sensorAvg, "Min: " + sensorMin, "Max: " + sensorMax);
       break;
     case 2: 
-      Pebble.sendAppMessage({"now": "Sensor Now:", "avg": sensorNow}, sendSuccess, sendFail);
+      sendMessage("Sensor Now:", sensorNow, null, null);
       break;
     default: 
       console.log("Error, display mode not set.");
@@ -248,7 +248,7 @@ function sendSuccess (e) {
   messageQueue.shift();
   if (messageQueue.length > 0) {
     var tempItem = messageQueue[0];
-    Pebble.sendAppMessage({"now": tempItem[0], "avg": tempItem[1], "min": tempItem[2], "max": tempItem[3]}, sendSuccess, sendFail);
+    sendMessageHelper(tempItem[0], tempItem[1], tempItem[2], tempItem[3]);
   } 
 }
 
@@ -259,12 +259,30 @@ function sendFail (e) {
 //  getWeather();
 }
 
+function sendMessageHelper(one, two, three, four) {
+  if (one && three)
+    Pebble.sendAppMessage({
+      "now": one, 
+       "avg": two, 
+       "min": three, 
+       "max": four}, sendSuccess, sendFail);
+  else if (one) 
+    Pebble.sendAppMessage({
+      "now": one, 
+       "avg": two}, sendSuccess, sendFail);
+  else if (three)
+    Pebble.sendAppMessage({
+      "min": three, 
+       "max": four}, sendSuccess, sendFail);
+}
+
 function sendMessage(one, two, three, four) {
   var item = [one, two, three, four];
   messageQueue.push(item);
   console.log("Adding " + item + "to send to watch app queue.");
-  if (messageQueue.length == 1)
-    Pebble.sendAppMessage({"now": one, "avg": two, "min": three, "max": four}, sendSuccess, sendFail);
+  if (messageQueue.length == 1) {
+    sendMessageHelper(one, two, three, four);
+  }
 }
 
 function readyHandler(e) {
