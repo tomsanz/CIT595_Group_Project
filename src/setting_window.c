@@ -20,7 +20,7 @@ static const char* menu_items_text[] = {
 };
 // Default settings:
 // refresh every minute, up button send refresh reading, display sensor reading.
-static int current_selections[] = {0, 2, 0};
+static int current_selections[] = {0, 1, 0};
 
 // Total number of options for each menu item.
 static int selection_nums[] = {2, 5, 3};

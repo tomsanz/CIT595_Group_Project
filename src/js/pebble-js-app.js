@@ -6,7 +6,7 @@ var INTERVAL_ID;
 var sensorNow, sensorMin, sensorMax, sensorAvg, outsideNow, tempMode;
 var HTTP_TIMEOUT = 5000;
 var DISPLAY_MODE = 1; // default display set to show sensor temperature only.
-var REFRESH_MODE = 3;
+var REFRESH_MODE = 2;
 var locationOptions = { "timeout": 15000, "maximumAge": 60000 };
 var PAUSE_INTERVAL = 3000; // Time to pause on a particular screen
 var messageQueue = [];
